@@ -1074,7 +1074,8 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
 
     gns[! gns %in% names(genes.show)[genes.show==cln] ] <- ""
     ### calculate coordinates of genes.show with QP
-    coord <- which( names(clust)[clust==cln] %in% names(genes.show)[genes.show==cln] )/sum(clust==cln)
+    coord <- seq(0,1,length.out = length(gns))
+    coord <- coord[which(names(clust)[clust == cln] %in% names(genes.show)[genes.show == cln])]
     del <- 1/(sum(genes.show==cln))#0.1
     Dmat <- diag(1,length(coord),length(coord))
     dvec <- rep(0,length(coord))
