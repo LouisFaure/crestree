@@ -484,7 +484,7 @@ cleanup.branches <- function(r,tips.remove=NULL,min.branch.length=3) {
 ##' @export
 setroot <- function(r,root=NULL,plot=TRUE) {
   if (is.null(root)) { stop("Assign correct root number") }
-  if ( ! root %in% r$tips ) {stop("Root should be one of the tree tips")}
+  if ( ! root %in% r$tips ) {cat("Warning: Root is not one of the tree tips\n")}
   # calculate time of each PP
   if (r$metrics=="euclidean"){d <- 1e-6+euclidean.mat(r$F,r$F)
   }else if (r$metrics=="cosine"){
