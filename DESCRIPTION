@@ -25,7 +25,8 @@ Imports:
     gridExtra,
     grid,
     pbapply,
-    glmnet
+    glmnet,
+    pbmcapply
 Remotes:
   bioc::3.3/pcaMethods
 LinkingTo: 

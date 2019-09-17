@@ -637,75 +637,86 @@ project.cells.onto.ppt <- function(r,emb=NULL,n.mapping=1) {
 ##' @param fdr.method a method to adjust for multiple testing. Default - Bonferroni. Alternatively, "BH" can be used.
 ##' @return modified pptree object with a new field r$stat.association that includes pvalue, amplitude, fdr, stability and siginificane (TRUE/FALSE) of gene associations
 ##' @export
-test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2),spline.df=3,fdr.cut=1e-4,A.cut=1,st.cut=0.8,summary=FALSE,subtree=NA,fdr.method=NULL, ...) {
-  if (is.null(r$root)) {stop("assign root first")}
-  if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
-  X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
-  if (sum(!colnames(X) %in% rownames(r$cell.summary)) > 0) {stop( paste("Expression matrix X contains cells not mapped onto the tree, e.g. cell",colnames(X)[!colnames(X) %in% rownames(r$cell.summary)][1]) )}
-  if (n.map < 0 | n.map > length(r$cell.info)) {stop("n.map should be more than 0 and less than number of mappings")}
-
-  genes <- rownames(X)
-  subseg <- unique(r$cell.summary$seg);
-  if (!is.na(subtree)) {subseg <- subtree$segs}
-  # for every gene
-  gtl <- lapply(1:n.map,function(ix){
-    print(paste("mapping",ix,"of",n.map))
-    if (n.map==1){ inf <- r$cell.summary}else{
-      inf <- r$cell.info[[ix]]
+test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2),spline.df=3,fdr.cut=1e-4,A.cut=1,st.cut=0.8,summary=FALSE,subtree=NA,fdr.method=NULL,verbose=T, ...) {
+    if (is.null(r$root)) {stop("assign root first")}
+    if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
+    X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
+    if (sum(!colnames(X) %in% rownames(r$cell.summary)) > 0) {stop( paste("Expression matrix X contains cells not mapped onto the tree, e.g. cell",colnames(X)[!colnames(X) %in% rownames(r$cell.summary)][1]) )}
+    if (n.map < 0 | n.map > length(r$cell.info)) {stop("n.map should be more than 0 and less than number of mappings")}
+    
+    genes <- rownames(X)
+    subseg <- unique(r$cell.summary$seg);
+    if (!is.na(subtree)) {subseg <- subtree$segs}
+    # for every gene
+    gtl <- lapply(1:n.map,function(ix){
+        print(paste("mapping",ix,"of",n.map))
+        if (n.map==1){ inf <- r$cell.summary}else{
+            inf <- r$cell.info[[ix]]
+        }
+        
+        gt.fun <- function(gene){
+            #sdf <- inf; sdf$exp <- X[gene,rownames(inf)]
+            sdf <- inf[inf$seg%in%subseg,]; sdf$exp <- X[gene,rownames(sdf)]#[inf$seg%in%subseg]
+            # time-based models
+            mdl <- tapply(1:nrow(sdf),as.factor(sdf$seg),function(ii) {
+                # TODO: adjust df according to branch length?
+                m <- mgcv::gam(exp~s(t,k=spline.df),data=sdf[ii,],familly=gaussian())
+                rl <- list(d=deviance(m),df=df.residual(m))
+                rl$p <- predict(m);
+                return(rl)
+            })
+            mdf <- data.frame(do.call(rbind,lapply(mdl,function(x) c(d=x$d,df=x$df))))
+            # background model
+            odf <- sum(mdf$df)-nrow(mdf); # correct for multiple segments
+            m0 <- mgcv::gam(exp~1,data=sdf,familly=gaussian())
+            if (sum(mdf$d)==0){ fstat <- 0}else{
+                fstat <- (deviance(m0) - sum(mdf$d))/(df.residual(m0)-odf)/(sum(mdf$d)/odf)
+            }
+            pval <-  pf(fstat,df.residual(m0)-odf,odf,lower.tail = FALSE);#1-pf(fstat,df.residual(m0)-odf,odf,lower.tail = T);
+            pr <- unlist(lapply(mdl,function(x) x$p))
+            return(c(pval=pval,A=max(pr)-min(pr)))
+        }
+        #library(parallel)
+        
+        if(verbose) {
+            gt <- do.call(rbind,pbmcapply::pbmclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+        } else {
+            gt <- do.call(rbind,mclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+        }
+        
+        
+        
+        gt <- data.frame(gt); rownames(gt) <- genes
+        if (is.null(fdr.method)) {
+            gt$fdr <- p.adjust(gt$pval)
+        }else{
+            gt$fdr <- p.adjust(gt$pval,method=fdr.method)
+        }
+        gt
+    })
+    
+    stat.association <- data.frame(cbind( apply(do.call(cbind,lapply(gtl,function(gt)gt$pval)),1,median),
+                                          apply(do.call(cbind,lapply(gtl,function(gt)gt$A)),1,median),
+                                          apply(do.call(cbind,lapply(gtl,function(gt)gt$fdr)),1,median),
+                                          apply(do.call(cbind,lapply(gtl,function(gt) gt$fdr < fdr.cut & gt$A > A.cut )),1,sum)/length(gtl)
+    ))
+    rownames(stat.association) <- genes; colnames(stat.association) <- c("pval","A","fdr","st")
+    stat.association$sign <- stat.association$fdr < fdr.cut & stat.association$A > A.cut & stat.association$st > st.cut
+    
+    # plot amplitude vs FDR and color genes that were idenfitied as significantly associated with the tree
+    if (summary==TRUE){
+        par(mfrow=c(1,1),mar=c(4.5,4.5,1,1))
+        plot(stat.association$A,stat.association$fdr,xlab="Amplitude",ylab="FDR, log",log="y",pch=19,cex=0.5,
+             col=adjustcolor( ifelse(stat.association$sign==TRUE,"red","black") ,0.4),cex.lab=1.5)
+        legend("bottomleft", legend=c( paste("DE,",sum(stat.association$sign)), paste("non-DE,",sum(!stat.association$sign))),
+               col=c("red", "black"), bty="n",pch=19,cex=1,pt.cex=1)
     }
-    gt <- do.call(rbind,mclapply(genes,function(gene) {
-      #sdf <- inf; sdf$exp <- X[gene,rownames(inf)]
-      sdf <- inf[inf$seg%in%subseg,]; sdf$exp <- X[gene,rownames(sdf)]#[inf$seg%in%subseg]
-      # time-based models
-      mdl <- tapply(1:nrow(sdf),as.factor(sdf$seg),function(ii) {
-        # TODO: adjust df according to branch length?
-        m <- mgcv::gam(exp~s(t,k=spline.df),data=sdf[ii,],familly=gaussian())
-        rl <- list(d=deviance(m),df=df.residual(m))
-        rl$p <- predict(m);
-        return(rl)
-      })
-      mdf <- data.frame(do.call(rbind,lapply(mdl,function(x) c(d=x$d,df=x$df))))
-      # background model
-      odf <- sum(mdf$df)-nrow(mdf); # correct for multiple segments
-      m0 <- mgcv::gam(exp~1,data=sdf,familly=gaussian())
-      if (sum(mdf$d)==0){ fstat <- 0}else{
-        fstat <- (deviance(m0) - sum(mdf$d))/(df.residual(m0)-odf)/(sum(mdf$d)/odf)
-      }
-      pval <-  pf(fstat,df.residual(m0)-odf,odf,lower.tail = FALSE);#1-pf(fstat,df.residual(m0)-odf,odf,lower.tail = T);
-      pr <- unlist(lapply(mdl,function(x) x$p))
-      return(c(pval=pval,A=max(pr)-min(pr)))
-    },mc.cores=n.cores,mc.preschedule=T))
-    gt <- data.frame(gt); rownames(gt) <- genes
-    if (is.null(fdr.method)) {
-      gt$fdr <- p.adjust(gt$pval)
+    if (is.na(subtree)){
+        r$stat.association <- stat.association
+        return(r)
     }else{
-      gt$fdr <- p.adjust(gt$pval,method=fdr.method)
+        return(stat.association)
     }
-    gt
-  })
-
-  stat.association <- data.frame(cbind( apply(do.call(cbind,lapply(gtl,function(gt)gt$pval)),1,median),
-                                        apply(do.call(cbind,lapply(gtl,function(gt)gt$A)),1,median),
-                                        apply(do.call(cbind,lapply(gtl,function(gt)gt$fdr)),1,median),
-                                        apply(do.call(cbind,lapply(gtl,function(gt) gt$fdr < fdr.cut & gt$A > A.cut )),1,sum)/length(gtl)
-  ))
-  rownames(stat.association) <- genes; colnames(stat.association) <- c("pval","A","fdr","st")
-  stat.association$sign <- stat.association$fdr < fdr.cut & stat.association$A > A.cut & stat.association$st > st.cut
-
-  # plot amplitude vs FDR and color genes that were idenfitied as significantly associated with the tree
-  if (summary==TRUE){
-    par(mfrow=c(1,1),mar=c(4.5,4.5,1,1))
-    plot(stat.association$A,stat.association$fdr,xlab="Amplitude",ylab="FDR, log",log="y",pch=19,cex=0.5,
-         col=adjustcolor( ifelse(stat.association$sign==TRUE,"red","black") ,0.4),cex.lab=1.5)
-    legend("bottomleft", legend=c( paste("DE,",sum(stat.association$sign)), paste("non-DE,",sum(!stat.association$sign))),
-           col=c("red", "black"), bty="n",pch=19,cex=1,pt.cex=1)
-  }
-  if (is.na(subtree)){
-    r$stat.association <- stat.association
-    return(r)
-  }else{
-    return(stat.association)
-  }
 }
 
 ##' Model gene expression levels as a function of tree positions.
@@ -717,7 +728,7 @@ test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2
 ##' @param gamma stringency of penalty.
 ##' @return modified pptree object with new fields r$fit.list, r$fit.summary and r$fit.pattern. r$fit.pattern contains matrix of fitted gene expression levels
 ##' @export
-fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5) {
+fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5,verbose=T) {
   if (is.null(r$root)) {stop("assign root first")}
   if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
   X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
@@ -734,7 +745,7 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
   #  }
 
   if (method=="ts"){
-    gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn)
+    gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=T)
   }else if (method=="sf"){
     gtl <- t.fit.sf(r,X[genes,],n.map,n.cores,gamma)
   }else if (method=="av"){
@@ -775,7 +786,7 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
 ##' @param gamma stringency of penalty.
 ##' @return matrix of fitted gene expression levels to the tree
 ##' @export
-fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1) {
+fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=T) {
   ix <- 1
   img = r$img.list[[ix]];
   root = r$root
@@ -808,7 +819,7 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1) 
     #branches.ll <- branches
     #genes <- intersect(rownames(X),rownames(r$stat.association)[r$stat.association$sign])
     genes <- rownames(X)
-    gt <- do.call(rbind,mclapply(genes,function(gene) {
+    gt.fun <- function(gene) {
       expr.fitted <- unlist(lapply(unique(branches$branch),function(br){
         branches1 <- branches[branches$branch==br,]
         expr <- X[gene,as.character(branches1$ids)]
@@ -831,7 +842,15 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1) 
       expr.fitted <- (dst.tree[names(expr.fitted),names(expr.fitted)] %*% expr.fitted) / (apply(dst.tree[names(expr.fitted),names(expr.fitted)],1,sum))
       expr.fitted <- expr.fitted[,1]
       return(expr.fitted[!duplicated(names(expr.fitted))])
-    },mc.cores = n.cores))
+    }
+
+    if(verbose) {    
+        gt <- do.call(rbind,pbmcapply::pbmclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+    } else {
+        gt <- do.call(rbind,mclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+    }
+
+
     rownames(gt) <- genes
     return(gt)
   })
