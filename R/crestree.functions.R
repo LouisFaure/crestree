@@ -521,6 +521,106 @@ setroot <- function(r,root=NULL,plot=TRUE) {
   r
 }
 
+##' Orient the tree by setting up 2 roots
+##'
+##' Assign root, pseudotime and segment to each principal point of the tree
+##' @param r pptree object
+##' @param roots vector of two roots principal point (plotppt(tips=TRUE,..) can be used to visualize candidate tips for a root)
+##' @return modified ppt.tree object with new fields r$pp.info (estimated pseudotime and branch of principal points), r$pp.segments (segments information), r$root (root id).
+##' @export
+set2roots <- function (r, roots = NULL, plot = TRUE) 
+{
+  if (is.null(root)) {
+    stop("Assign correct roots numbers")
+  }
+  if (length(roots)!=2){
+    stop("Assign correct roots numbers, only two allowed")
+  }
+  if (!roots %in% r$tips) {
+    stop("Root is not one of the tree tips\n")
+  }
+  if (r$metrics == "euclidean") {
+    d <- 1e-06 + euclidean.mat(r$F, r$F)
+  }
+  else if (r$metrics == "cosine") {
+    d <- abs(0.01 + 1 - cor.mat(r$F, r$F))
+  }
+  g <- graph.adjacency(r$B * d, weighted = T, mode = "undirected")
+  
+  ## Select the earliest root
+  pathrr = unlist(get.shortest.paths(g, from = as.character(roots[1]), 
+                                     to = as.character(roots[2])))
+  
+  meeting=pathrr[pathrr%in%which(degree(g)==3)]
+  
+  if (length(meeting)>1){
+    meetdist=(sapply(meeting,function(n) shortest.paths(g,n, c(roots[1],roots[2]))))
+    meeting=meeting[which.min(abs(1-(meetdist[1,]/meetdist[2,])))]
+  }
+  
+  cat(paste0("meeting point is ",meeting,"\n"))
+  root=c(roots[1],roots[2])[which.max(shortest.paths(g,meeting, c(roots[1],roots[2])))]
+  root_l=setdiff(c(roots[1],roots[2]),root)
+  cat(paste0(root," is selected as the earliest root\n"))
+  pp.info <- data.frame(cbind(V(g), as.double(shortest.paths(g, 
+                                                             root, V(g))), rep(0, length(V(g)))))
+  colnames(pp.info) = c("PP", "time", "seg")
+  nodes <- V(g)[igraph::degree(g) != 2]
+  if (!root %in% r$tips) {
+    nodes = c(nodes, V(g)[root])
+  }
+  pp.segs = data.frame(n = numeric(), from = character(), to = character(), 
+                       d = numeric(),stringsAsFactors = F)
+  
+  
+  
+  for (i in 1:(length(nodes) - 1)) {
+    for (j in (i + 1):length(nodes)) {
+      node1 = nodes[i]
+      node2 = nodes[j]
+      path12 = unlist(get.shortest.paths(g, from = as.character(node1), 
+                                         to = as.character(node2)))
+      if (sum(nodes %in% path12) == 2) {
+        from = node1$name
+        to = node2$name
+        if (!is.null(root)) {
+          path_root = shortest.paths(g, root, c(node1, 
+                                                node2))
+          from = colnames(path_root)[which.min(path_root)]
+          to = colnames(path_root)[which.max(path_root)]
+        }
+        pp.info[path12, ]$seg = nrow(pp.segs) + 1
+        pp.segs = rbind(pp.segs, data.frame(n = nrow(pp.segs) + 
+                                              1, from = from, to = to, d = shortest.paths(g, 
+                                                                                          as.character(node1), as.character(node2))[1],stringsAsFactors = F))
+      }
+    }
+  }
+  
+  ## reorder segments according to second root
+  walk=T
+  while (walk){
+    toswap=root_l
+    pp.segs[pp.segs$to==toswap,2:3]=pp.segs[pp.segs$to==toswap,3:2]
+    toswap=pp.segs[pp.segs$from==toswap,3]
+    if (meeting==toswap){walk=F}
+  }
+  
+  r1r2=shortest.paths(g,root,meeting)-shortest.paths(g, root_l,meeting)
+  rbr=unlist(get.shortest.paths(g, from = root_l,to = meeting))
+  
+  pp.info[rbr,]$time=c(0,cumsum(mapply(function(x,y) 
+    shortest.paths(g, x,y),x=rbr[-length(rbr)],y=rbr[-1])))+as.vector(r1r2)
+  
+  
+  pp.segs$color = rainbow(nrow(pp.segs))
+  pp.info$color = pp.segs$color[pp.info$seg]
+  r$pp.segments <- pp.segs
+  r$root <- roots
+  r$pp.info <- pp.info
+  r
+}
+
 
 
 ##' Project cells onto the principal tree
