@@ -638,7 +638,7 @@ project.cells.onto.ppt <- function(r,emb=NULL,n.mapping=1) {
 ##' @param fdr.method a method to adjust for multiple testing. Default - Bonferroni. Alternatively, "BH" can be used.
 ##' @return modified pptree object with a new field r$stat.association that includes pvalue, amplitude, fdr, stability and siginificane (TRUE/FALSE) of gene associations
 ##' @export
-test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2),spline.df=3,fdr.cut=1e-4,A.cut=1,st.cut=0.8,summary=FALSE,subtree=NA,fdr.method=NULL,verbose=T, ...) {
+test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2),spline.df=3,fdr.cut=1e-4,A.cut=1,st.cut=0.8,summary=FALSE,subtree=NA,fdr.method=NULL,verbose=F, ...) {
     if (is.null(r$root)) {stop("assign root first")}
     if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
     X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
@@ -729,7 +729,7 @@ test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2
 ##' @param gamma stringency of penalty.
 ##' @return modified pptree object with new fields r$fit.list, r$fit.summary and r$fit.pattern. r$fit.pattern contains matrix of fitted gene expression levels
 ##' @export
-fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5,verbose=T) {
+fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5,verbose=F) {
   if (is.null(r$root)) {stop("assign root first")}
   if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
   X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
@@ -746,7 +746,7 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
   #  }
 
   if (method=="ts"){
-    gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=T)
+    gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=verbose)
   }else if (method=="sf"){
     gtl <- t.fit.sf(r,X[genes,],n.map,n.cores,gamma)
   }else if (method=="av"){
@@ -787,7 +787,7 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
 ##' @param gamma stringency of penalty.
 ##' @return matrix of fitted gene expression levels to the tree
 ##' @export
-fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=T) {
+fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=F) {
   ix <- 1
   img = r$img.list[[ix]];
   root = r$root
@@ -1033,7 +1033,7 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
   tseg <- unlist(lapply( unique(r$cell.summary$seg),function(seg)mean(r$cell.summary$t[r$cell.summary$seg==seg]))); names(tseg) <-  unique(r$cell.summary$seg)
   tseg <- tseg[as.character(r$cell.summary$seg)]
 
-  gns <- rownames(ppt$fit.summary)
+  gns <- rownames(r$fit.summary)
   if (!is.na(clust)){gns <- names(clust)}
   emat <- r$fit.summary[gns,rownames(r$cell.summary)][,order(tseg,r$cell.summary$t)]
   emat <- t(apply(emat,1,function(x) (x-mean(x))/sd(x) ))
