@@ -530,9 +530,6 @@ setroot <- function(r,root=NULL,plot=TRUE) {
 ##' @export
 set2roots <- function (r, roots = NULL, plot = TRUE) 
 {
-  if (is.null(root)) {
-    stop("Assign correct roots numbers")
-  }
   if (length(roots)!=2){
     stop("Assign correct roots numbers, only two allowed")
   }
