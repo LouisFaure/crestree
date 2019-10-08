@@ -735,24 +735,28 @@ project.cells.onto.ppt <- function(r,emb=NULL,n.mapping=1) {
 ##' @param st.cut cutoff on stability (fraction of mappings with significant (fdr,A) pair) of association; significance, significance if A > A.cut
 ##' @param summary show plot of amplitude vs FDR of each gene's association. By default FALSE.
 ##' @param subtree restrict statistical assesment to a subtree
+##' @param cells restrict statistical assesment to some cells
 ##' @param fdr.method a method to adjust for multiple testing. Default - Bonferroni. Alternatively, "BH" can be used.
 ##' @return modified pptree object with a new field r$stat.association that includes pvalue, amplitude, fdr, stability and siginificane (TRUE/FALSE) of gene associations
 ##' @export
-test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2),spline.df=3,fdr.cut=1e-4,A.cut=1,st.cut=0.8,summary=FALSE,subtree=NA,fdr.method=NULL,verbose=F, ...) {
+test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2),spline.df=3,fdr.cut=1e-4,A.cut=1,st.cut=0.8,summary=FALSE,subtree=NA,cells=NA,fdr.method=NULL,verbose=F, ...) {
+    if (!is.na(cells) & !is.na(subtree)){stop("select either subtree or cells")}
+    if (!is.na(cells) | !is.na(subtree)){return_stat=TRUE} else {return_stat=FALSE}
     if (is.null(r$root)) {stop("assign root first")}
     if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
-    X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
+    if (is.na(cells)){cells=rownames(r$cell.summary)}
+    X <- X[,intersect(colnames(X),cells)]
     if (sum(!colnames(X) %in% rownames(r$cell.summary)) > 0) {stop( paste("Expression matrix X contains cells not mapped onto the tree, e.g. cell",colnames(X)[!colnames(X) %in% rownames(r$cell.summary)][1]) )}
     if (n.map < 0 | n.map > length(r$cell.info)) {stop("n.map should be more than 0 and less than number of mappings")}
     
     genes <- rownames(X)
-    subseg <- unique(r$cell.summary$seg);
+    subseg <- unique(r$cell.summary[cells,]$seg);
     if (!is.na(subtree)) {subseg <- subtree$segs}
     # for every gene
     gtl <- lapply(1:n.map,function(ix){
         print(paste("mapping",ix,"of",n.map))
-        if (n.map==1){ inf <- r$cell.summary}else{
-            inf <- r$cell.info[[ix]]
+        if (n.map==1){ inf <- r$cell.summary[cells,]}else{
+            inf <- r$cell.info[[ix]][cells,]
         }
         
         gt.fun <- function(gene){
@@ -812,11 +816,11 @@ test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2
         legend("bottomleft", legend=c( paste("DE,",sum(stat.association$sign)), paste("non-DE,",sum(!stat.association$sign))),
                col=c("red", "black"), bty="n",pch=19,cex=1,pt.cex=1)
     }
-    if (is.na(subtree)){
-        r$stat.association <- stat.association
-        return(r)
-    }else{
-        return(stat.association)
+    if (return_stat){
+      return(stat.association)
+    } else {
+      r$stat.association <- stat.association
+      return(r)
     }
 }
 
