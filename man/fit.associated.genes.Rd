@@ -6,7 +6,7 @@
 \usage{
 fit.associated.genes(r, X, n.map = 1,
   n.cores = parallel::detectCores()/2, method = "ts", knn = 1,
-  gamma = 1.5)
+  gamma = 1.5, verbose = F)
 }
 \arguments{
 \item{r}{pptree object}

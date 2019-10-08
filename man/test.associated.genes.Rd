@@ -7,7 +7,7 @@
 test.associated.genes(r, X, n.map = 1,
   n.cores = (parallel::detectCores()/2), spline.df = 3,
   fdr.cut = 1e-04, A.cut = 1, st.cut = 0.8, summary = FALSE,
-  subtree = NA, fdr.method = NULL, ...)
+  subtree = NA, cells = NA, fdr.method = NULL, verbose = F, ...)
 }
 \arguments{
 \item{r}{pptree object}
@@ -23,6 +23,8 @@ test.associated.genes(r, X, n.map = 1,
 \item{summary}{show plot of amplitude vs FDR of each gene's association. By default FALSE.}
 
 \item{subtree}{restrict statistical assesment to a subtree}
+
+\item{cells}{restrict statistical assesment to some cells}
 
 \item{fdr.method}{a method to adjust for multiple testing. Default - Bonferroni. Alternatively, "BH" can be used.}
 }
