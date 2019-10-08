@@ -1334,7 +1334,7 @@ branch.specific.genes <- function(fork.de,stf.cut = 0.7, effect.b1 = 0.1,effect.
 activation.statistics <- function(r,mat,root,leave,genes=rownames(mat),deriv.cutoff = 0.015,gamma=1,n.mapping=1,n.cores=parallel::detectCores()/2){
   xx = do.call(rbind,(mclapply(genes,function(gene){
     gres <- do.call(rbind,lapply(1:n.mapping,function(i){
-      segs = extract.subtree(ppt,c(root,leave))
+      segs = extract.subtree(r,c(root,leave))
       cell.summary <- r$cell.info[[i]]
       cells <- rownames(cell.summary)[cell.summary$seg %in% segs$segs]
 
