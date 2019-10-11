@@ -5,7 +5,7 @@
 \title{Model gene expression levels as a brancing spline function of tree positions.}
 \usage{
 fit.ts(r, X, n.map, n.cores = parallel::detectCores()/2, gamma = 1.5,
-  knn = 1, verbose = F)
+  knn = 1, verbose = FALSE)
 }
 \arguments{
 \item{r}{pptree object}

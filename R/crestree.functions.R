@@ -533,7 +533,7 @@ set2roots <- function (r, roots = NULL, plot = TRUE)
   if (length(roots)!=2){
     stop("Assign correct roots numbers, only two allowed")
   }
-  if (!roots %in% r$tips) {
+  if (!all(roots %in% r$tips)) {
     stop("Root is not one of the tree tips\n")
   }
   if (r$metrics == "euclidean") {
@@ -548,7 +548,7 @@ set2roots <- function (r, roots = NULL, plot = TRUE)
   pathrr = unlist(get.shortest.paths(g, from = as.character(roots[1]), 
                                      to = as.character(roots[2])))
   
-  meeting=pathrr[pathrr%in%which(degree(g)==3)]
+  meeting=pathrr[pathrr%in%which(degree(g)>=3)]
   
   if (length(meeting)>1){
     meetdist=(sapply(meeting,function(n) shortest.paths(g,n, c(roots[1],roots[2]))))
@@ -613,7 +613,8 @@ set2roots <- function (r, roots = NULL, plot = TRUE)
   pp.segs$color = rainbow(nrow(pp.segs))
   pp.info$color = pp.segs$color[pp.info$seg]
   r$pp.segments <- pp.segs
-  r$root <- roots
+  r$meeting <- V(g)[meeting]
+  r$root <- c(root,root_l) # earliest root first
   r$pp.info <- pp.info
   r
 }
@@ -838,24 +839,15 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
   if (n.map < 0 | n.map > length(r$cell.info)) {stop("n.map should be more than 0 and less than number of mappings")}
   if ( is.null(r$stat.association) ) {stop("identify significantly associated genes using test.associated.genes()")}
   genes <- intersect(rownames(X),rownames(r$stat.association)[r$stat.association$sign])
-
-
+  
+  
   #gtl <- lapply(1:n.map,function(ix){
   #  print(paste("mapping",ix,"of",n.map))
   #  if (n.map==1){ inf <- r$cell.summary}else{
   #    inf <- r$cell.info[[ix]]
   #  }
 
-  if (method=="ts"){
-    gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=verbose)
-  }else if (method=="sf"){
-    gtl <- t.fit.sf(r,X[genes,],n.map,n.cores,gamma)
-  }else if (method=="av"){
-    gtl <- t.fit.av(r,X[genes,],n.map,n.cores)
-  }else{stop("please choose correct method name")}
-  #})
-
-
+  gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=verbose)
   ft.summary <- matrix(0,nrow=nrow(gtl[[1]]),ncol=ncol(gtl[[1]]))
   rownames(ft.summary) <- rownames(gtl[[1]]); colnames(ft.summary) <- colnames(gtl[[1]])
   if (length(gtl)>=1){
@@ -871,11 +863,13 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
   }
   ft.summary <- ft.summary/length(gtl)
   #colnames(ft.summary) <- rownames(r$cell.summary)
+    
   r$fit.list <- gtl
   r$fit.summary <- ft.summary
-  r$fit.pattern <- classify.genes(r)
-  print(table(r$fit.pattern))
-
+  #r$fit.pattern[[k]] <- classify.genes(r)
+  
+  #print(table(r$fit.pattern))
+  
   return(r)
 }
 
@@ -888,36 +882,43 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
 ##' @param gamma stringency of penalty.
 ##' @return matrix of fitted gene expression levels to the tree
 ##' @export
-fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=F) {
-  ix <- 1
-  img = r$img.list[[ix]];
-  root = r$root
-  tips = r$tips[r$tips != root]
-  branches.ll = do.call(rbind,lapply(tips, function(tip){
-    b = get.shortest.paths(img,from=as.character(root),to=as.character(tip))$vpath[[1]]$name
+fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=FALSE) {
+
+  getpaths <- function(img,rt,tip){
+    b = get.shortest.paths(img,from=as.character(rt),to=as.character(tip))$vpath[[1]]$name
     b = b[grepl("^c",b)]
     ind <- paste('c',r$cell.info[[ix]]$cell,sep="") %in% b
     cbind( ids=rownames(r$cell.info[[ix]])[ind], r$cell.info[[ix]][ind,],branch=rep( which(tips==tip),length(b)) )
-  }))
+  }
+  
+  ix <- 1
+  img = r$img.list[[ix]];
+  root = r$root[1]
+  tips = c(r$tips[!r$tips %in% r$root],r$meeting)
+  branches.ll = do.call(rbind,lapply(tips[!tips%in%r$meeting], function(tip) getpaths(img,root,tip)))
+  if (length(r$root)>1){
+    branches.ll=rbind(branches.ll,getpaths(img,r$root[2],r$meeting))
+  }
+  
   # calculate knn for each vertex along the tree
   for (v in r$pp.info$PP){img <- delete_vertices(img,as.character(v))}
   dst.tree <- distances(img,v=V(img),to=V(img));
   dst.tree <- dst.tree[ paste("c",r$cell.summary$cell,sep=""),paste("c",r$cell.summary$cell,sep="") ]
   rownames(dst.tree) <- colnames(dst.tree) <- rownames(r$cell.summary)
   dst.tree[dst.tree <= knn] <- 1; dst.tree[dst.tree > knn] <- 0
-
+  
   gtl <- lapply(1:n.map,function(ix){
     print(paste("fit gene expression for mapping",ix))
     img = r$img.list[[ix]];
-    root = r$root
-    tips = r$tips[r$tips != root]
-    branches = do.call(rbind,lapply(tips, function(tip){
-      b = get.shortest.paths(img,from=as.character(root),to=as.character(tip))$vpath[[1]]$name
-      b = b[grepl("^c",b)]
-      ind <- paste('c',r$cell.info[[ix]]$cell,sep="") %in% b
-      cbind( ids=rownames(r$cell.info[[ix]])[ind], r$cell.info[[ix]][ind,],branch=rep( which(tips==tip),length(b)) )
-    }))
-
+    root = r$root[1]
+    #print("blah")
+    #print(tips)
+    tips = c(r$tips[!r$tips %in% r$root],r$meeting)
+    branches = do.call(rbind,lapply(tips[!tips%in%r$meeting], function(tip) getpaths(img,root,tip)))
+    if (length(r$root)>1){
+      branches=rbind(branches,getpaths(img,r$root[2],r$meeting))
+    }
+    
     #branches.ll <- branches
     #genes <- intersect(rownames(X),rownames(r$stat.association)[r$stat.association$sign])
     genes <- rownames(X)
@@ -934,30 +935,30 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
         rownames(td) <- branches.ll[branches.ll$branch==br,]$ids; colnames(td) <- "tt"
         predict(gene.fit1,td )
       }))
-
+      
       # old version - averaging along shared branches
       #for( cell in names(which(table(branches.ll$ids) > 1))){
       #  expr.fitted[branches.ll$ids==cell] <- mean(expr.fitted[branches.ll$ids==cell])
       #}
-
+      
       # new version - knn smoothing, where knns are estimated along the tree.
       expr.fitted <- (dst.tree[names(expr.fitted),names(expr.fitted)] %*% expr.fitted) / (apply(dst.tree[names(expr.fitted),names(expr.fitted)],1,sum))
       expr.fitted <- expr.fitted[,1]
       return(expr.fitted[!duplicated(names(expr.fitted))])
     }
-
+    
     if(verbose) {    
-        gt <- do.call(rbind,pbmcapply::pbmclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+      gt <- do.call(rbind,pbmcapply::pbmclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
     } else {
-        gt <- do.call(rbind,mclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+      gt <- do.call(rbind,mclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
     }
-
-
+    
     rownames(gt) <- genes
     return(gt)
   })
   return(gtl)
 }
+
 
 
 
