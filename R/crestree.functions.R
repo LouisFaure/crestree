@@ -894,7 +894,8 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
   ix <- 1
   img = r$img.list[[ix]];
   root = r$root[1]
-  tips = c(r$tips[!r$tips %in% r$root],r$meeting)
+  if (!is.null(r$meeting)){tips = c(r$tips[!r$tips %in% r$root],r$meeting)} else {tips = r$tips[!r$tips %in% r$root]}
+  
   branches.ll = do.call(rbind,lapply(tips[!tips%in%r$meeting], function(tip) getpaths(img,root,tip)))
   if (length(r$root)>1){
     branches.ll=rbind(branches.ll,getpaths(img,r$root[2],r$meeting))
@@ -1096,9 +1097,15 @@ visualise.trajectory = function(r,gene,X,cex.cell=0.3,cex.lab=2,cex.axis=1.5,cex
   for (seg in segs){
 
     ind <- r$cell.summary$seg==seg
-    c2.name <- rownames(r$cell.summary[ind,])[which.min(r$cell.summary$t[ind])]
-    c2 <- r$cell.summary$cell[ind][which.min(r$cell.summary$t[ind])]
-    c2.seg <- r$cell.summary$seg[ind][which.min(r$cell.summary$t[ind])]
+    if (r$pp.segments[r$pp.segments$n==seg,2]%in%r$root[-1]){
+      c2.name <- rownames(r$cell.summary[ind,])[which.max(r$cell.summary$t[ind])]
+      c2 <- r$cell.summary$cell[ind][which.max(r$cell.summary$t[ind])]
+      c2.seg <- r$cell.summary$seg[ind][which.max(r$cell.summary$t[ind])]
+    } else {
+      c2.name <- rownames(r$cell.summary[ind,])[which.min(r$cell.summary$t[ind])]
+      c2 <- r$cell.summary$cell[ind][which.min(r$cell.summary$t[ind])]
+      c2.seg <- r$cell.summary$seg[ind][which.min(r$cell.summary$t[ind])]
+    }
 
     c2.path <- names(shortest_paths(g,r$root,paste("c",c2,sep="") )$vpath[[1]])
     c2.path <- c2.path[unlist(lapply(1:length(c2.path),function(i) grepl("c",c2.path[i])))]
@@ -1128,20 +1135,20 @@ visualise.trajectory = function(r,gene,X,cex.cell=0.3,cex.lab=2,cex.axis=1.5,cex
 ##' @param subtree visualize clusters for a given subtree
 ##' @export
 visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor",cex.gene=1,cex.cell=0.1,cex.tree=2,subtree=NA, reclust=TRUE){
-
-
+  
+  
   if ( !is.na(clust) & sum(!names(clust)%in%rownames(r$fit.summary))>0) {stop( paste("Expression is not fitted for",sum(!names(clust)%in%rownames(r$fit.summary)),"genes" ))}
   if (best.method!="pca" & best.method!="cor") {stop(paste("incorrect best.method option",best.method) )}
   tseg <- unlist(lapply( unique(r$cell.summary$seg),function(seg)mean(r$cell.summary$t[r$cell.summary$seg==seg]))); names(tseg) <-  unique(r$cell.summary$seg)
   tseg <- tseg[as.character(r$cell.summary$seg)]
-
+  
   gns <- rownames(r$fit.summary)
   if (!is.na(clust)){gns <- names(clust)}
   emat <- r$fit.summary[gns,rownames(r$cell.summary)][,order(tseg,r$cell.summary$t)]
   emat <- t(apply(emat,1,function(x) (x-mean(x))/sd(x) ))
   cols <- r$cell.summary$col[order(tseg,r$cell.summary$t)]
   subcells = TRUE; if (!is.na(subtree)){subcells <- r$cell.summary$seg[order(tseg,r$cell.summary$t)]%in%subtree$seg}
-
+  
   # cluster genes if necessary
   if (is.na(clust)){
     gns <- rownames(emat)#names(clust)[clust==cln]
@@ -1149,7 +1156,7 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
     hcl <- hclust(as.dist(dst.cor),method="ward.D")
     clust <- cutree(hcl,clust.n)
   }
-
+  
   k <- length(unique(clust))
   genes.show <- unlist(lapply(1:k,function(i){
     n <- n.best; if ( sum(clust==i) < n) {n <- sum(clust==i)}
@@ -1163,7 +1170,7 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
       return(cr.best)
     }
   }))
-
+  
   nf <- layout( matrix(unlist(lapply(1:k,function(i) 5*(i-1)+c(1,2,3,1,4,5))),2*k,3, byrow=T),respect = T,width=c(1,1,0.1),heights=rep(c(0.1,1),k) )
   #layout.show(nf)
   for (cln in 1:k){
@@ -1174,7 +1181,7 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
       hclust.cor <- hclust(as.dist(dst.cor),method="ward.D")
       gns <- gns[hclust.cor$order]
     }
-
+    
     # draw cluster-wise pattern
     par(mar=c(0.3,0.1,0.0,0.2))
     plotppt(r,emb,pattern.cell = apply(emat[clust==cln,],2,mean),cex.main=cex.cell,cex.tree = cex.tree,lwd.tree = 0.1,subtree=subtree)
@@ -1184,20 +1191,26 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
     col.ind <- 1:length(unique(cols)); names(col.ind) = unique(cols)
     image( t(rbind( col.ind[cols[subcells]] )),axes=FALSE,col=(unique(cols[subcells])) )
     box()
-
+    
     par(mar=c(0.0,0.0,0.0,0))
     plot(0.2,0.2,ylim=c(0.05,0.95),xlim=c(0,1),xaxt='n',yaxt='n',pch='',ylab='',xlab='',bty='n')
-
+    
     #par(mar=c(0.2,0.2,0.0,2))
     par(mar=c(0.3,0.0,0.0,0))
     image( t(emat[gns,subcells]),axes=FALSE,col=colorRampPalette(c("blue","grey80","red"))(n = 60))
     #axis( 4, at=seq(0,1,length.out=sum(clust==cln)),col.axis="black", labels=gns,hadj=0.1,xaxt="s",cex.axis=1.5,font = 3,las= 1,tick=FALSE)
     box()
-
+    
     gns[! gns %in% names(genes.show)[genes.show==cln] ] <- ""
     ### calculate coordinates of genes.show with QP
-    coord <- seq(0,1,length.out = length(gns))
-    coord <- coord[which(names(clust)[clust == cln] %in% names(genes.show)[genes.show == cln])]
+    if (length(gns)>1.5*length(genes.show[genes.show==cln])){
+      coord <- which( names(clust)[clust==cln] %in% names(genes.show)[genes.show==cln] )/sum(clust==cln)
+    } else {
+      coord <- seq(0,1,length.out = length(gns))
+      coord <- coord[which(names(clust)[clust == cln] %in% names(genes.show)[genes.show == cln])]
+    }
+    
+    #
     del <- 1/(sum(genes.show==cln))#0.1
     Dmat <- diag(1,length(coord),length(coord))
     dvec <- rep(0,length(coord))
@@ -1215,7 +1228,7 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
     }
     ###
   }
-
+  
 }
 
 
