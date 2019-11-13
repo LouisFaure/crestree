@@ -1,3 +1,14 @@
+This fork is a slightly modified crestree package, which was used the following research paper:
+
+Soldatov, R. et al. Spatiotemporal structure of cell fate decisions in murine neural crest. Science (80-. ). 364, (2019).
+
+The modifications are the following:
+- allow to select 2 roots (with consistent projection of the cells on the tree)
+- allow to select any point on the tree as a root
+- allow to perform test for associated genes on s subset of cells that is not an entire branch
+- adding of progress bars for time consuming processes
+- a small fix for visualisation of gene clusters, when few genes are being plotted.
+
 # crestree
 A set of methods developed to model cell fate decision landscape of early mouse neural crest.
 
