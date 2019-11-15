@@ -133,22 +133,24 @@ fig.cells <- function(emb,freq){
 ##' @param genesetA a vector of fate-specific genes of bifurcation branch 1
 ##' @param genesetB a vector of fate-specific genes of bifurcation branch 2
 ##' @param val boolean, if show the degree of "repulsion" of fate-specific modules. FALSE by default.
+##' @param c1 color for first set of genes. NULL by default.
+##' @param c2 color for second set of genes. NULL by default.
 ##' @return ggplot object visualising pattern of local correlations in consequtive windows.
 ##' @export
-fig.cors <- function(cors,genesetA,genesetB,val=FALSE){
+fig.cors <- function(cors,genesetA,genesetB,val=FALSE,c1=NULL,c2=NULL){
+  if (is.null(c1)){c1="red"}
+  if (is.null(c2)){c2="blue"}
   cr <- unlist(lapply(cors,function(corc) as.vector(corc)))
   cr.abs <- max(abs(cr))
   lapply( cors,function(corc){
     corA <- corc[,1]
     corB <- corc[,2]
-    colr = rep("red",length(corA)); colr[ c(genesetA,genesetB) %in% genesetA ] = "blue"
+    colr = rep(c2,length(corA)); colr[ c(genesetA,genesetB) %in% genesetA ] = c1
     repulsion = cor(corA,(ifelse( c(genesetA,genesetB)%in%genesetA,1,2 )))+cor(corB,(ifelse( c(genesetA,genesetB)%in%genesetB,1,2 )))
     return(ggplot()+geom_point( aes(corA,corB),colour=colr,size=1)+
-             #xlim(-0.3,0.3)+ylim(-0.3,0.3)+ # this is for sens-auto
-             xlim(-cr.abs,cr.abs)+ylim(-cr.abs,cr.abs)+ # this is for auto-mes
+             xlim(-cr.abs,cr.abs)+ylim(-cr.abs,cr.abs)+
              geom_vline(xintercept = 0,linetype=2)+geom_hline(yintercept = 0,linetype=2)+
-             #annotate("text",x=0.2,y=0.25,label=paste(round(repulsion/2,1),sep=""),size=5,fontface=3)+ # this is for sens-auto
-             annotate("text",x=cr.abs-0.1,y=cr.abs-0.05,label=paste(round(repulsion/2,1),sep=""),size=ifelse(val==TRUE,5,0),fontface=3)+ # this is for auto-mes
+             annotate("text",x=cr.abs-(1/3)*cr.abs,y=cr.abs-(1/8)*cr.abs,label=paste(round(repulsion/2,1),sep=""),size=ifelse(val==TRUE,5,0),fontface=3)+ # this is for auto-mes
              theme(legend.position="none")+theme_bw()+theme(axis.title=element_blank(),axis.ticks=element_blank(),axis.text=element_blank())+
              theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
     )

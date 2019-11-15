@@ -4,7 +4,7 @@
 \alias{fig.cors}
 \title{Visualize patterns of local correlations in consequtive windows.}
 \usage{
-fig.cors(cors, genesetA, genesetB, val = FALSE)
+fig.cors(cors, genesetA, genesetB, val = FALSE, c1 = NULL, c2 = NULL)
 }
 \arguments{
 \item{cors}{a list of local average correlations with fate-specific modules. Outcome of slide.cors function.}
@@ -14,6 +14,10 @@ fig.cors(cors, genesetA, genesetB, val = FALSE)
 \item{genesetB}{a vector of fate-specific genes of bifurcation branch 2}
 
 \item{val}{boolean, if show the degree of "repulsion" of fate-specific modules. FALSE by default.}
+
+\item{c1}{color for first set of genes. NULL by default.}
+
+\item{c2}{color for second set of genes. NULL by default.}
 }
 \value{
 ggplot object visualising pattern of local correlations in consequtive windows.
