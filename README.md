@@ -7,7 +7,7 @@ The modifications are the following:
 - allow to select any point on the tree as a root
 - allow to perform test for associated genes on s subset of cells that is not an entire branch
 - addition of progress bars for time consuming processes
-- a small fix for visualisation of gene clusters, when few genes are being plotted.
+- various fixes for visualisation of gene clusters
 
 # crestree
 A set of methods developed to model cell fate decision landscape of early mouse neural crest.
