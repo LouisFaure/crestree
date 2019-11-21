@@ -1133,8 +1133,9 @@ visualise.trajectory = function(r,gene,X,cex.cell=0.3,cex.lab=2,cex.axis=1.5,cex
 ##' @param cex.tree width of line of tree on embedding
 ##' @param reclust whether to reorder cells inside individual clusters on heatmap according to hierarchical clustering using Ward linkage and 1-Pearson as a distance between genes. By default is FALSE.
 ##' @param subtree visualize clusters for a given subtree
+##' @param show.genes input your own list of genes, integer vector with names as genes
 ##' @export
-visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor",cex.gene=1,cex.cell=0.1,cex.tree=2,subtree=NA, reclust=TRUE){
+visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor",cex.gene=1,cex.cell=0.1,cex.tree=2,subtree=NA, reclust=TRUE,show.genes=NULL){
   
   
   if ( !is.na(clust) & sum(!names(clust)%in%rownames(r$fit.summary))>0) {stop( paste("Expression is not fitted for",sum(!names(clust)%in%rownames(r$fit.summary)),"genes" ))}
@@ -1158,18 +1159,19 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
   }
   
   k <- length(unique(clust))
-  genes.show <- unlist(lapply(1:k,function(i){
-    n <- n.best; if ( sum(clust==i) < n) {n <- sum(clust==i)}
-    if (best.method=="pca"){
-      pr <- pca(t(emat[clust==i,]),center = TRUE, scale = "uv")
-      pr.best <- rep(i,n); names(pr.best) <- names(sort(pr@loadings[,1],decreasing = T))[1:n]
-      return(pr.best)
-    }else if (best.method=="cor"){
-      cr <- cor(t(emat[clust==i,]))
-      cr.best <- rep(i,n); names(cr.best) <- names(sort(apply(cr,1,mean),decreasing = TRUE))[1:n]
-      return(cr.best)
-    }
-  }))
+  if (is.null(genes.show)){
+    genes.show <- unlist(lapply(1:k,function(i){
+      n <- n.best; if ( sum(clust==i) < n) {n <- sum(clust==i)}
+      if (best.method=="pca"){
+        pr <- pca(t(emat[clust==i,]),center = TRUE, scale = "uv")
+        pr.best <- rep(i,n); names(pr.best) <- names(sort(pr@loadings[,1],decreasing = T))[1:n]
+        return(pr.best)
+      }else if (best.method=="cor"){
+        cr <- cor(t(emat[clust==i,]))
+        cr.best <- rep(i,n); names(cr.best) <- names(sort(apply(cr,1,mean),decreasing = TRUE))[1:n]
+        return(cr.best)
+      }
+  }))}
   
   nf <- layout( matrix(unlist(lapply(1:k,function(i) 5*(i-1)+c(1,2,3,1,4,5))),2*k,3, byrow=T),respect = T,width=c(1,1,0.1),heights=rep(c(0.1,1),k) )
   #layout.show(nf)

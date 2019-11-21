@@ -6,7 +6,7 @@
 \usage{
 visualise.clusters(r, emb, clust = NA, clust.n = 5, n.best = 4,
   best.method = "cor", cex.gene = 1, cex.cell = 0.1, cex.tree = 2,
-  subtree = NA, reclust = TRUE)
+  subtree = NA, reclust = TRUE, show.genes = NULL)
 }
 \arguments{
 \item{r}{pptree object}
@@ -28,6 +28,8 @@ visualise.clusters(r, emb, clust = NA, clust.n = 5, n.best = 4,
 \item{subtree}{visualize clusters for a given subtree}
 
 \item{reclust}{whether to reorder cells inside individual clusters on heatmap according to hierarchical clustering using Ward linkage and 1-Pearson as a distance between genes. By default is FALSE.}
+
+\item{show.genes}{input your own list of genes, integer vector with names as genes}
 }
 \description{
 Visualize clusters of genes using heatmap and consensus tree-projected pattern.
