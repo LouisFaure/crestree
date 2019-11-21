@@ -1135,7 +1135,7 @@ visualise.trajectory = function(r,gene,X,cex.cell=0.3,cex.lab=2,cex.axis=1.5,cex
 ##' @param subtree visualize clusters for a given subtree
 ##' @param show.genes input your own list of genes, integer vector with names as genes
 ##' @export
-visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor",cex.gene=1,cex.cell=0.1,cex.tree=2,subtree=NA, reclust=TRUE,show.genes=NULL){
+visualise.clusters <- function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor",cex.gene=1,cex.cell=0.1,cex.tree=2,subtree=NA, reclust=TRUE,genes.show=NULL){
   
   
   if ( !is.na(clust) & sum(!names(clust)%in%rownames(r$fit.summary))>0) {stop( paste("Expression is not fitted for",sum(!names(clust)%in%rownames(r$fit.summary)),"genes" ))}
@@ -1171,7 +1171,7 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
         cr.best <- rep(i,n); names(cr.best) <- names(sort(apply(cr,1,mean),decreasing = TRUE))[1:n]
         return(cr.best)
       }
-  }))}
+    }))}
   
   nf <- layout( matrix(unlist(lapply(1:k,function(i) 5*(i-1)+c(1,2,3,1,4,5))),2*k,3, byrow=T),respect = T,width=c(1,1,0.1),heights=rep(c(0.1,1),k) )
   #layout.show(nf)
@@ -1191,7 +1191,11 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
     #par(mar=c(0.0,0.2,0.1,2))
     par(mar=c(0.0,0.0,0.0,0))
     col.ind <- 1:length(unique(cols)); names(col.ind) = unique(cols)
-    image( t(rbind( col.ind[cols[subcells]] )),axes=FALSE,col=(unique(cols[subcells])) )
+    
+    tocol=matrix(as.numeric(as.factor(col.ind[cols[subcells]])))
+    rownames(tocol)=names(col.ind[cols[subcells]])
+    image( tocol,axes=FALSE,col=(unique(cols[subcells])) )
+    #image( t(rbind( col.ind[cols[subcells]] )),axes=FALSE,col=(unique(cols[subcells])) )
     box()
     
     par(mar=c(0.0,0.0,0.0,0))
@@ -1203,13 +1207,14 @@ visualise.clusters <-function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor
     #axis( 4, at=seq(0,1,length.out=sum(clust==cln)),col.axis="black", labels=gns,hadj=0.1,xaxt="s",cex.axis=1.5,font = 3,las= 1,tick=FALSE)
     box()
     
+    gns_temp=gns
     gns[! gns %in% names(genes.show)[genes.show==cln] ] <- ""
     ### calculate coordinates of genes.show with QP
     if (length(gns)>1.5*length(genes.show[genes.show==cln])){
-      coord <- which( names(clust)[clust==cln] %in% names(genes.show)[genes.show==cln] )/sum(clust==cln)
+      coord <- which( gns_temp %in% names(genes.show)[genes.show==cln] )/sum(clust==cln)
     } else {
       coord <- seq(0,1,length.out = length(gns))
-      coord <- coord[which(names(clust)[clust == cln] %in% names(genes.show)[genes.show == cln])]
+      coord <- coord[which(gns_temp %in% names(genes.show)[genes.show == cln])]
     }
     
     #
