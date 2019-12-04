@@ -914,10 +914,14 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
     root = r$root[1]
     #print("blah")
     #print(tips)
-    tips = c(r$tips[!r$tips %in% r$root],r$meeting)
-    branches = do.call(rbind,lapply(tips[!tips%in%r$meeting], function(tip) getpaths(img,root,tip)))
+    
     if (length(r$root)>1){
+      tips = c(r$tips[!r$tips %in% r$root],r$meeting)
+      branches = do.call(rbind,lapply(tips[!tips%in%r$meeting], function(tip) getpaths(img,root,tip)))
       branches=rbind(branches,getpaths(img,r$root[2],r$meeting))
+    } else {
+      tips = r$tips
+      branches = do.call(rbind,lapply(tips, function(tip) getpaths(img,root,tip)))
     }
     
     #branches.ll <- branches
