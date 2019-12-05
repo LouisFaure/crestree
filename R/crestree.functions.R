@@ -496,7 +496,7 @@ setroot <- function(r,root=NULL,plot=TRUE) {
 
   # infer all segments (and put in segs) of the tree
   nodes <- V(g)[ igraph::degree(g)!=2 ]
-  if ( ! root %in% r$tips ){nodes=c(nodes,V(g)[root])}
+  if ( ! root %in% r$tips & ! root %in% r$forks){nodes=c(nodes,V(g)[root])}
   pp.segs = data.frame(n=numeric(),from=character(),to=character(),d=numeric())
   for (i in 1:(length(nodes)-1) ){
     for (j in (i+1):length(nodes)){
