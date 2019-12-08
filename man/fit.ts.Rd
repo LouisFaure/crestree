@@ -5,7 +5,7 @@
 \title{Model gene expression levels as a brancing spline function of tree positions.}
 \usage{
 fit.ts(r, X, n.map, n.cores = parallel::detectCores()/2, gamma = 1.5,
-  knn = 1, verbose = FALSE)
+  knn = 1, verbose = FALSE, smoothpar = TRUE)
 }
 \arguments{
 \item{r}{pptree object}
@@ -17,6 +17,8 @@ fit.ts(r, X, n.map, n.cores = parallel::detectCores()/2, gamma = 1.5,
 \item{gamma}{stringency of penalty.}
 
 \item{knn}{use expression averaging among knn cells}
+
+\item{smoothpar}{do parallel calculation on smoothing function, FALSE is useful for big dataset leading to huge dst.tree objects}
 }
 \value{
 matrix of fitted gene expression levels to the tree

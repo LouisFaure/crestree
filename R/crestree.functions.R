@@ -829,9 +829,10 @@ test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2
 ##' @param method method of modeling. Currently only splines with option 'ts' are supported.
 ##' @param knn use expression averaging among knn cells
 ##' @param gamma stringency of penalty.
+##' @param smoothpar do parallel calculation on smoothing function, FALSE is useful for big dataset leading to huge dst.tree objects
 ##' @return modified pptree object with new fields r$fit.list, r$fit.summary and r$fit.pattern. r$fit.pattern contains matrix of fitted gene expression levels
 ##' @export
-fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5,verbose=F) {
+fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5,verbose=FALSE,smoothpar=TRUE) {
   if (is.null(r$root)) {stop("assign root first")}
   if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
   X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
@@ -847,7 +848,7 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
   #    inf <- r$cell.info[[ix]]
   #  }
 
-  gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=verbose)
+  gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=verbose,smoothpar=smoothpar)
   ft.summary <- matrix(0,nrow=nrow(gtl[[1]]),ncol=ncol(gtl[[1]]))
   rownames(ft.summary) <- rownames(gtl[[1]]); colnames(ft.summary) <- colnames(gtl[[1]])
   if (length(gtl)>=1){
@@ -880,9 +881,10 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
 ##' @param n.map number of probabilistic cell-to-tree mappings to use
 ##' @param knn use expression averaging among knn cells
 ##' @param gamma stringency of penalty.
+##' @param smoothpar do parallel calculation on smoothing function, FALSE is useful for big dataset leading to huge dst.tree objects
 ##' @return matrix of fitted gene expression levels to the tree
 ##' @export
-fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=FALSE) {
+fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=FALSE,smoothpar=TRUE) {
 
   getpaths <- function(img,rt,tip){
     b = get.shortest.paths(img,from=as.character(rt),to=as.character(tip))$vpath[[1]]$name
@@ -927,6 +929,8 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
     #branches.ll <- branches
     #genes <- intersect(rownames(X),rownames(r$stat.association)[r$stat.association$sign])
     genes <- rownames(X)
+    X=X[genes,]
+    X=lapply(genes,function(g) X[g,])
     gt.fun <- function(gene) {
       expr.fitted <- unlist(lapply(unique(branches$branch),function(br){
         branches1 <- branches[branches$branch==br,]
@@ -951,14 +955,64 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
       expr.fitted <- expr.fitted[,1]
       return(expr.fitted[!duplicated(names(expr.fitted))])
     }
-    
-    if(verbose) {    
-      gt <- do.call(rbind,pbmcapply::pbmclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
-    } else {
-      gt <- do.call(rbind,mclapply(genes, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+
+    gt.fun.fit <- function(f_expr) {
+      expr.fitted <- unlist(lapply(unique(branches$branch),function(br){
+        branches1 <- branches[branches$branch==br,]
+        expr <- f_expr[as.character(branches1$ids)]
+        #gene.fit1 = gam( expr ~ s( branches1$time,k=length(branches1$time),bs="ts"),knots=list(branches1$time) )
+        tt <- branches1$t
+        #tt <- 1:length(tt)
+        gene.fit1 = mgcv::gam( expr ~ s(tt,bs="ts"),gamma=gamma)
+        #ggplot()+geom_point(aes(tt,expr))+geom_line(aes(tt,gene.fit1$fitted.values))
+        td <- data.frame(matrix(branches.ll[branches.ll$branch==br,]$t,nrow=sum(branches.ll$branch==br)));
+        rownames(td) <- branches.ll[branches.ll$branch==br,]$ids; colnames(td) <- "tt"
+        predict(gene.fit1,td )
+      }))
+      
+      # old version - averaging along shared branches
+      #for( cell in names(which(table(branches.ll$ids) > 1))){
+      #  expr.fitted[branches.ll$ids==cell] <- mean(expr.fitted[branches.ll$ids==cell])
+      #}
+      
+      return(expr.fitted)
     }
     
-    rownames(gt) <- genes
+    gt.fun.smooth <- function(expr.fitted){
+      # new version - knn smoothing, where knns are estimated along the tree.
+      temp=dst.tree[names(expr.fitted),names(expr.fitted)]
+      expr.fitted <- (temp %*% expr.fitted) / rowSums(temp)
+      expr.fitted <- expr.fitted[,1]
+      return(expr.fitted[!duplicated(names(expr.fitted))])
+    }
+
+    gt.fun <- function(f_expr){
+      gt=gt.fun.fit(f_expr)
+      return(gt.fun.smooth(gt))
+    }
+
+
+    if(verbose) {
+      if (smoothpar){
+        gt = do.call(rbind,pbmcapply::pbmclapply(X, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+      } else {
+         cat("fit genes\n")
+        gt <- pbmcapply::pbmclapply(X, gt.fun.fit, mc.cores = n.cores, mc.preschedule=T)
+        cat("knn smoothing\n")
+        gt = do.call(rbind,pbmcapply::pbmclapply(gt, gt.fun.smooth, mc.cores = 1, mc.preschedule=T))
+      }
+    } else {
+      if (smoothpar){
+        gt = do.call(rbind,mclapply(X, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+      } else {
+         cat("fit genes\n")
+        gt <- clapply(X, gt.fun.fit, mc.cores = n.cores, mc.preschedule=T)
+        cat("knn smoothing\n")
+        gt = do.call(rbind,mclapply(gt, gt.fun.smooth, mc.cores = 1, mc.preschedule=T))
+      }
+  }
+    
+    rownames(gt) <- genes[1:10]
     return(gt)
   })
   return(gtl)

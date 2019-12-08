@@ -6,7 +6,7 @@
 \usage{
 fit.associated.genes(r, X, n.map = 1,
   n.cores = parallel::detectCores()/2, method = "ts", knn = 1,
-  gamma = 1.5, verbose = F)
+  gamma = 1.5, verbose = FALSE, smoothpar = TRUE)
 }
 \arguments{
 \item{r}{pptree object}
@@ -20,6 +20,8 @@ fit.associated.genes(r, X, n.map = 1,
 \item{knn}{use expression averaging among knn cells}
 
 \item{gamma}{stringency of penalty.}
+
+\item{smoothpar}{do parallel calculation on smoothing function, FALSE is useful for big dataset leading to huge dst.tree objects}
 }
 \value{
 modified pptree object with new fields r$fit.list, r$fit.summary and r$fit.pattern. r$fit.pattern contains matrix of fitted gene expression levels
