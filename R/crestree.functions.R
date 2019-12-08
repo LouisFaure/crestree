@@ -1012,7 +1012,7 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
       }
   }
     
-    rownames(gt) <- genes[1:10]
+    rownames(gt) <- genes
     return(gt)
   })
   return(gtl)
