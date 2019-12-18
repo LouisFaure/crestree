@@ -1252,7 +1252,7 @@ visualise.clusters <- function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="co
     
     tocol=matrix(as.numeric(as.factor(col.ind[cols[subcells]])))
     rownames(tocol)=names(col.ind[cols[subcells]])
-    image( tocol,axes=FALSE,col=(unique(cols[subcells])) )
+    image( tocol,useRaster=TRUE,axes=FALSE,col=(unique(cols[subcells])) )
     #image( t(rbind( col.ind[cols[subcells]] )),axes=FALSE,col=(unique(cols[subcells])) )
     box()
     
@@ -1261,7 +1261,7 @@ visualise.clusters <- function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="co
     
     #par(mar=c(0.2,0.2,0.0,2))
     par(mar=c(0.3,0.0,0.0,0))
-    image( t(emat[gns,subcells]),axes=FALSE,col=colorRampPalette(c("blue","grey80","red"))(n = 60))
+    image( t(emat[gns,subcells]),useRaster=TRUE,axes=FALSE,col=colorRampPalette(c("blue","grey80","red"))(n = 60))
     #axis( 4, at=seq(0,1,length.out=sum(clust==cln)),col.axis="black", labels=gns,hadj=0.1,xaxt="s",cex.axis=1.5,font = 3,las= 1,tick=FALSE)
     box()
     

@@ -4,10 +4,17 @@
 \alias{visualize.synchro}
 \title{Visualise local correlation trends of inter- and intra- module local correlations of fate-specific modules}
 \usage{
-visualize.synchro(crd)
+visualize.synchro(crd, sc1 = NULL, sc2 = NULL, sc3 = NULL,
+  tmax = NULL, vert = NULL)
 }
 \arguments{
-\item{outcome}{of synchro function}
+\item{crd}{outcome of synchro function}
+
+\item{sc1}{(2,and 3)specify ylims}
+
+\item{tmax}{ymax (pseudotime)}
+
+\item{vert}{add vertical lines at given pseudotimes}
 }
 \value{
 visualize combiation of ggplot2 objects

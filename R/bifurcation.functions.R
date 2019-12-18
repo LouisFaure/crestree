@@ -266,31 +266,47 @@ synchro.path = function(r,mat,genesetA,genesetB,w,step,n.mapping = length(r$cell
 
 
 ##' Visualise local correlation trends of inter- and intra- module local correlations of fate-specific modules
-##' @param  outcome of synchro function
+##' @param  crd outcome of synchro function
+##' @param  sc1 (2,and 3)specify ylims
+##' @param  tmax ymax (pseudotime)
+##' @param  vert add vertical lines at given pseudotimes
 ##' @return visualize combiation of ggplot2 objects
 ##' @export
-visualize.synchro <- function(crd){
+visualize.synchro <- function(crd,sc1=NULL,sc2=NULL,sc3=NULL,tmax=NULL,vert=NULL){
   consensus <- crd[[1]]
   indiv <- crd[[2]]
-
+  
   pl_aa <- ggplot()+geom_point(aes(consensus$pts,consensus$corAA),colour=consensus$col)+
-    geom_line(aes( indiv$time,indiv$corAA,group=indiv$run),colour=indiv$colr,size=0.3,alpha=I(0.1))+
-    theme_bw()+theme(legend.position="none")+xlab("")+ylab("module A")+
+    geom_line(aes( indiv$time,indiv$corAA,group=indiv$run),colour=indiv$colr,size=0.3,alpha=I(0.1))+theme_pubr()+border()+
+    theme(legend.position="none")+xlab("")+ylab("module A")+
     theme(axis.title.y=element_text(size=16),axis.text=element_text(size=20),axis.title.x=element_blank())+
     scale_y_continuous(limits=c(0,max(indiv$corAA,consensus$corAA)))+geom_hline(yintercept = 0,linetype=2)
-
+  
+  if (!is.null(sc1)){pl_aa = pl_aa + scale_y_continuous(limits = sc1)}
+  if (!is.null(tmax)){pl_aa = pl_aa + scale_x_continuous(limits = c(0,tmax))}
+  if (!is.null(vert)){pl_aa = pl_aa + geom_vline(xintercept = vert,linetype=2)}
+  
   pl_bb <- ggplot()+geom_point(aes(consensus$pts,consensus$corBB),colour=consensus$col)+
-    geom_line(aes( indiv$time,indiv$corBB,group=indiv$run),colour=indiv$colr,size=0.3,alpha=I(0.1))+
-    theme_bw()+theme(legend.position="none")+xlab("")+ylab("module B")+
+    geom_line(aes( indiv$time,indiv$corBB,group=indiv$run),colour=indiv$colr,size=0.3,alpha=I(0.1))+theme_pubr()+border()+
+    theme(legend.position="none")+xlab("")+ylab("module B")+
     theme(axis.title.y=element_text(size=16),axis.text=element_text(size=20),axis.title.x=element_blank())+
     scale_y_continuous(limits=c(0,max(indiv$corBB,consensus$corBB)))+geom_hline(yintercept = 0,linetype=2)
-
+  
+  if (!is.null(sc2)){pl_bb = pl_bb + scale_y_continuous(limits = sc2)}
+  if (!is.null(tmax)){pl_bb = pl_bb + scale_x_continuous(limits = c(0,tmax))}
+  if (!is.null(vert)){pl_bb = pl_bb + geom_vline(xintercept = vert,linetype=2)}
+  
   pl_ab <- ggplot()+geom_point(aes(consensus$pts,consensus$corAB),colour=consensus$col)+
-    geom_line(aes( indiv$time,indiv$corAB,group=indiv$run),colour=indiv$colr,size=0.3,alpha=I(0.1))+
-    theme_bw()+theme(legend.position="none")+xlab("")+ylab("modules A-B")+
+    geom_line(aes( indiv$time,indiv$corAB,group=indiv$run),colour=indiv$colr,size=0.3,alpha=I(0.1))+theme_pubr() +border()+
+    theme(legend.position="none")+xlab("")+ylab("modules A-B")+
     theme(axis.title.y=element_text(size=16),axis.text=element_text(size=20),axis.title.x=element_blank())+
     scale_y_continuous(limits=c(min(indiv$corAB,consensus$corAB),max(indiv$corAB,consensus$corAB)))+geom_hline(yintercept = 0,linetype=2)
-
+    
+  
+  if (!is.null(sc3)){pl_ab = pl_ab + scale_y_continuous(limits = sc3)}
+  if (!is.null(tmax)){pl_ab = pl_ab + scale_x_continuous(limits = c(0,tmax))}
+  if (!is.null(vert)){pl_ab = pl_ab + geom_vline(xintercept = vert,linetype=2)}
+  
   grid.arrange( pl_aa,pl_bb,pl_ab,bottom=textGrob("pseudotime",gp=gpar(cex=2)),
                 left=textGrob("local correlation",rot=90,gp=gpar(cex=2)),ncol=1, nrow = 3 )
 }
