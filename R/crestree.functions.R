@@ -729,28 +729,27 @@ project.cells.onto.ppt <- function(r,emb=NULL,n.mapping=1) {
 ##' Subset ppt
 ##' @param r pptree object in which cells have been projected to the tree
 ##' @param subtree subtree to subset
-##' @param emb if not NULL than subsetted ppt is plotted
+##' @param emb subsetted ppt is plotted
 ##' @return subsetted pptree object with new fields r$cell.summary, r$cell.info and r$img.list. r$cell.summary contains information about cells projected onto the tree, including pseudotime and branch.
 ##' @export
-sub.ppt <- function(r,subtree,emb=NULL){
-	if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
-  	r$F=r$F[,r$pp.info$seg%in%subtree$segs]
-  	colnames(r$F)=1:ncol(r$F)
-  	r$B=r$B[r$pp.info$seg%in%subtree$segs,r$pp.info$seg%in%subtree$segs]
-  	colnames(r$B)=1:ncol(r$B)
-  	r$R=r$R[rownames(r$cell.summary)[r$cell.summary$seg%in%subtree$segs],r$pp.info$seg%in%subtree$segs]
-  	colnames(r$R)=1:ncol(r$R)
-  	r$L=r$L[as.numeric(colnames(r$R)),as.numeric(colnames(r$R))]
-  	r$DT=r$DT[as.numeric(colnames(r$R)),as.numeric(colnames(r$R))]
+sub.ppt <- function(r,subtree,emb){
+  if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
+  r$F=r$F[,r$pp.info$seg%in%subtree$segs]
+  colnames(r$F)=1:ncol(r$F)
+  r$B=r$B[r$pp.info$seg%in%subtree$segs,r$pp.info$seg%in%subtree$segs]
+  colnames(r$B)=1:ncol(r$B)
+  r$R=r$R[rownames(r$cell.summary)[r$cell.summary$seg%in%subtree$segs],r$pp.info$seg%in%subtree$segs]
+  colnames(r$R)=1:ncol(r$R)
+  r$L=r$L[as.numeric(colnames(r$R)),as.numeric(colnames(r$R))]
+  r$DT=r$DT[as.numeric(colnames(r$R)),as.numeric(colnames(r$R))]
   
-  	if (!is.null(emb)){
-    	plotppt(list(F=r$F,B=r$B,R=r$R,L=r$L,lambda=r$lambda,sigma=r$sigma),emb)
-  	}
-  
-  	g = graph.adjacency(r$B,mode="undirected")
-  	r$tips=V(g)[igraph::degree(g)==1];r$forks=V(g)[igraph::degree(g)>2]
-  
-  	return(r)
+  g = graph.adjacency(r$B,mode="undirected")
+  r$tips=V(g)[igraph::degree(g)==1];r$forks=V(g)[igraph::degree(g)>2]
+  plotppt(r,emb,tips=T,cex.tree=.1)
+  root=readline(prompt="Enter new root: ")
+  r=setroot(r,as.integer(root)) 
+  r=project.cells.onto.ppt(r,emb)
+  return(r)
 }
 
 
