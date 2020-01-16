@@ -172,15 +172,16 @@ fig.cors <- function(cors,genesetA,genesetB,val=FALSE,c1=NULL,c2=NULL){
 ##' @param n.points number of pseudotime points to extrapolate and visualize patterns
 ##' @param span.smooth smooth parameters of loess
 ##' @param perm boolean, estimate control trends for local permutations instread of real expression matrix
+##' @param winp window of permutation in cells
 ##' @return estimates of local correlation trend for each probabilistic cell projection and average among cell projections
 ##' @export
-synchro <- function(ppt,fpm,root,leaves,genesetA,genesetB,w,step,n.mapping,n.points=100,span.smooth = 0.1,perm=FALSE){
+synchro <- function(ppt,fpm,root,leaves,genesetA,genesetB,w,step,n.mapping,n.points=100,span.smooth = 0.1,perm=FALSE,winp=5){
   cat('process path 1 of 2');cat('\n')
   subtree <- extract.subtree(ppt,c(root,leaves[1]))
   xx1 <- synchro.path(ppt,fpm,genesetA,genesetB,w,step,n.mapping = n.mapping,subtree,perm=perm);
   subtree <- extract.subtree(ppt,c(root,leaves[2]))
   cat('process path 2 of 2');cat('\n')
-  xx2 <- synchro.path(ppt,fpm,genesetA,genesetB,w,step,n.mapping = n.mapping,subtree,perm=perm);
+  xx2 <- synchro.path(ppt,fpm,genesetA,genesetB,w,step,n.mapping = n.mapping,subtree,perm=perm,winp=winp);
   xx2$run <- xx2$run + max(xx1$run)
 
   pts <- seq(min(c(xx1$t,xx2$t)),max(c(xx1$t,xx2$t)),length.out = n.points)
@@ -217,9 +218,10 @@ synchro <- function(ppt,fpm,root,leaves,genesetA,genesetB,w,step,n.mapping,n.poi
 ##' @param step step, in number of cells, between local windows
 ##' @param subtree trajectory, consisting of a vector of segments comprising trajectory
 ##' @param perm boolean, estimate control trends for local permutations instread of real expression matrix
+##' @param winp window of permutation in cells
 ##' @return estimate of local correlation trends along trajectory
 ##' @export
-synchro.path = function(r,mat,genesetA,genesetB,w,step,n.mapping = length(r$cell.info),subtree,perm=FALSE){
+synchro.path = function(r,mat,genesetA,genesetB,w,step,n.mapping = length(r$cell.info),subtree,perm=FALSE,winp=5){
   xx1=do.call(rbind,mclapply( 1:n.mapping,function(j){
     cell.pseudotime <- r$cell.info[[j]]
     texpr1 = mat;
@@ -228,7 +230,7 @@ synchro.path = function(r,mat,genesetA,genesetB,w,step,n.mapping = length(r$cell
         tloc = cell.pseudotime[cell.pseudotime$seg==seg,]
         tloc = tloc[order(tloc$t),]
         cell_order = rownames(r$R)[tloc$cell]
-        winperm=min(5,length(cell_order))
+        winperm=min(winp,length(cell_order))
         for ( i in seq(1,length(cell_order)-winperm+1,winperm) ){
           texpr1[,cell_order[i:(i+winperm-1)]] = t(apply(mat[,cell_order[i:(i+winperm-1)]],1,function(x){
             sample(x)

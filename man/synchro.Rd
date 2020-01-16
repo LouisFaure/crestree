@@ -5,7 +5,7 @@
 \title{Estimates pseudotime trends of local intra- and inter-module correlations of fates-specific modules}
 \usage{
 synchro(ppt, fpm, root, leaves, genesetA, genesetB, w, step, n.mapping,
-  n.points = 100, span.smooth = 0.1, perm = FALSE)
+  n.points = 100, span.smooth = 0.1, perm = FALSE, winp = 5)
 }
 \arguments{
 \item{ppt}{ppt object}
@@ -31,6 +31,8 @@ synchro(ppt, fpm, root, leaves, genesetA, genesetB, w, step, n.mapping,
 \item{span.smooth}{smooth parameters of loess}
 
 \item{perm}{boolean, estimate control trends for local permutations instread of real expression matrix}
+
+\item{winp}{window of permutation in cells}
 }
 \value{
 estimates of local correlation trend for each probabilistic cell projection and average among cell projections

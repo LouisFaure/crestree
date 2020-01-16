@@ -5,7 +5,7 @@
 \title{Estimates pseudotime trends of local intra- and inter-module correlations of fates-specific modules along a single trajectory}
 \usage{
 synchro.path(r, mat, genesetA, genesetB, w, step,
-  n.mapping = length(r$cell.info), subtree, perm = FALSE)
+  n.mapping = length(r$cell.info), subtree, perm = FALSE, winp = 5)
 }
 \arguments{
 \item{mat}{expression matrix}
@@ -21,6 +21,8 @@ synchro.path(r, mat, genesetA, genesetB, w, step,
 \item{subtree}{trajectory, consisting of a vector of segments comprising trajectory}
 
 \item{perm}{boolean, estimate control trends for local permutations instread of real expression matrix}
+
+\item{winp}{window of permutation in cells}
 
 \item{ppt}{ppt object}
 }

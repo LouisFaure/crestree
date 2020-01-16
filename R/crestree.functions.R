@@ -393,8 +393,8 @@ plotppt <- function(r,emb,F=NULL, gene=NULL, main=gene, mat=NULL, pattern.cell=N
     coord = do.call(rbind,lapply(r$tips,function(tip){
       x1 = F[1,tip]; y1 = F[2,tip]
       x2 = F[1,which(r$B[tip,]>0)]; y2 = F[2,which(r$B[tip,]>0)]
-      xnew = x1 + 1.5*sign(x1-x2)#(1+sign(x1-x2)/0.5)*sign(x1-x2)#alpha*(x1-x2)
-      ynew = y1 + 1.5*sign(y1-y2)#xnew*(y2-y1)/(x2-x1) + (y1*x2-y2*x1)/(x2-x1)
+      xnew = x1 + 1.1*sign(x1-x2)#(1+sign(x1-x2)/0.5)*sign(x1-x2)#alpha*(x1-x2)
+      ynew = y1 + 1.1*sign(y1-y2)#xnew*(y2-y1)/(x2-x1) + (y1*x2-y2*x1)/(x2-x1)
       c(xnew,ynew)
     }))
     text((coord),col=1,cex=1,adj=c(0,0),labels=r$tips,font=2);#text(t(F[, r$tips ]),col=1,cex=1.2,adj=c(0,0),labels=r$tips);
@@ -620,7 +620,6 @@ set2roots <- function (r, roots = NULL, plot = TRUE)
 }
 
 
-
 ##' Project cells onto the principal tree
 ##' @param r pptree object
 ##' @param emb if not NULL than cell branch assignment and color code of branches are shown
@@ -723,6 +722,37 @@ project.cells.onto.ppt <- function(r,emb=NULL,n.mapping=1) {
   #r$mg <- mg;
   return(invisible(r))
 }
+
+
+##' subset ppt
+##'
+##' Subset ppt
+##' @param r pptree object in which cells have been projected to the tree
+##' @param subtree subtree to subset
+##' @param emb if not NULL than subsetted ppt is plotted
+##' @return subsetted pptree object with new fields r$cell.summary, r$cell.info and r$img.list. r$cell.summary contains information about cells projected onto the tree, including pseudotime and branch.
+##' @export
+sub.ppt <- function(r,subtree,emb=NULL){
+	if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
+  	r$F=r$F[,r$pp.info$seg%in%subtree$segs]
+  	colnames(r$F)=1:ncol(r$F)
+  	r$B=r$B[r$pp.info$seg%in%subtree$segs,r$pp.info$seg%in%subtree$segs]
+  	colnames(r$B)=1:ncol(r$B)
+  	r$R=r$R[rownames(r$cell.summary)[r$cell.summary$seg%in%subtree$segs],r$pp.info$seg%in%subtree$segs]
+  	colnames(r$R)=1:ncol(r$R)
+  	r$L=r$L[as.numeric(colnames(r$R)),as.numeric(colnames(r$R))]
+  	r$DT=r$DT[as.numeric(colnames(r$R)),as.numeric(colnames(r$R))]
+  
+  	if (!is.null(emb)){
+    	plotppt(list(F=r$F,B=r$B,R=r$R,L=r$L,lambda=r$lambda,sigma=r$sigma),emb)
+  	}
+  
+  	g = graph.adjacency(r$B,mode="undirected")
+  	r$tips=V(g)[igraph::degree(g)==1];r$forks=V(g)[igraph::degree(g)>2]
+  
+  	return(r)
+}
+
 
 
 ##' Determine a set of genes significantly associated with the tree
