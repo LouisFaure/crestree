@@ -1026,7 +1026,7 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
     } else {
       gt = do.call(rbind,mclapply(X, gt.fun, mc.cores = n.cores, mc.preschedule=T))
     }
-  }
+
     
     rownames(gt) <- genes
     return(gt)
