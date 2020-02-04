@@ -858,10 +858,9 @@ test.associated.genes <- function(r,X,n.map=1,n.cores=(parallel::detectCores()/2
 ##' @param method method of modeling. Currently only splines with option 'ts' are supported.
 ##' @param knn use expression averaging among knn cells
 ##' @param gamma stringency of penalty.
-##' @param smoothpar do parallel calculation on smoothing function, FALSE is useful for big dataset leading to huge dst.tree objects
 ##' @return modified pptree object with new fields r$fit.list, r$fit.summary and r$fit.pattern. r$fit.pattern contains matrix of fitted gene expression levels
 ##' @export
-fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5,verbose=FALSE,smoothpar=TRUE) {
+fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,method="ts",knn=1,gamma=1.5,verbose=FALSE) {
   if (is.null(r$root)) {stop("assign root first")}
   if (is.null(r$cell.summary) | is.null(r$cell.info)) {stop("project cells onto the tree first")}
   X <- X[,intersect(colnames(X),rownames(r$cell.summary))]
@@ -877,7 +876,7 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
   #    inf <- r$cell.info[[ix]]
   #  }
 
-  gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=verbose,smoothpar=smoothpar)
+  gtl <- fit.ts(r,X[genes,],n.map,n.cores,gamma,knn,verbose=verbose)
   ft.summary <- matrix(0,nrow=nrow(gtl[[1]]),ncol=ncol(gtl[[1]]))
   rownames(ft.summary) <- rownames(gtl[[1]]); colnames(ft.summary) <- colnames(gtl[[1]])
   if (length(gtl)>=1){
@@ -910,10 +909,9 @@ fit.associated.genes <- function(r,X,n.map=1,n.cores=parallel::detectCores()/2,m
 ##' @param n.map number of probabilistic cell-to-tree mappings to use
 ##' @param knn use expression averaging among knn cells
 ##' @param gamma stringency of penalty.
-##' @param smoothpar do parallel calculation on smoothing function, FALSE is useful for big dataset leading to huge dst.tree objects
 ##' @return matrix of fitted gene expression levels to the tree
 ##' @export
-fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=FALSE,smoothpar=TRUE) {
+fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,verbose=FALSE) {
 
   getpaths <- function(img,rt,tip){
     b = get.shortest.paths(img,from=as.character(rt),to=as.character(tip))$vpath[[1]]$name
@@ -934,11 +932,14 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
   
   # calculate knn for each vertex along the tree
   for (v in r$pp.info$PP){img <- delete_vertices(img,as.character(v))}
+  cat("making distance tree\n")
   dst.tree <- distances(img,v=V(img),to=V(img));
   dst.tree <- dst.tree[ paste("c",r$cell.summary$cell,sep=""),paste("c",r$cell.summary$cell,sep="") ]
   rownames(dst.tree) <- colnames(dst.tree) <- rownames(r$cell.summary)
   dst.tree[dst.tree <= knn] <- 1; dst.tree[dst.tree > knn] <- 0
-  
+  cat("convert distance tree to sparse\n")
+  dst.tree=Matrix(dst.tree,sparse=TRUE)
+  gc() # free up some memory, for big datasets dst.tree can be huge
   gtl <- lapply(1:n.map,function(ix){
     print(paste("fit gene expression for mapping",ix))
     img = r$img.list[[ix]];
@@ -1020,25 +1021,11 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
       return(gt.fun.smooth(gt))
     }
 
-
     if(verbose) {
-      if (smoothpar){
-        gt = do.call(rbind,pbmcapply::pbmclapply(X, gt.fun, mc.cores = n.cores, mc.preschedule=T))
-      } else {
-         cat("fit genes\n")
-        gt <- pbmcapply::pbmclapply(X, gt.fun.fit, mc.cores = n.cores, mc.preschedule=T)
-        cat("knn smoothing\n")
-        gt = do.call(rbind,pbmcapply::pbmclapply(gt, gt.fun.smooth, mc.cores = 1, mc.preschedule=T))
-      }
+      gt = do.call(rbind,pbmcapply::pbmclapply(X, gt.fun, mc.cores = n.cores, mc.preschedule=T))
     } else {
-      if (smoothpar){
-        gt = do.call(rbind,mclapply(X, gt.fun, mc.cores = n.cores, mc.preschedule=T))
-      } else {
-         cat("fit genes\n")
-        gt <- clapply(X, gt.fun.fit, mc.cores = n.cores, mc.preschedule=T)
-        cat("knn smoothing\n")
-        gt = do.call(rbind,mclapply(gt, gt.fun.smooth, mc.cores = 1, mc.preschedule=T))
-      }
+      gt = do.call(rbind,mclapply(X, gt.fun, mc.cores = n.cores, mc.preschedule=T))
+    }
   }
     
     rownames(gt) <- genes
@@ -1411,19 +1398,24 @@ test.fork.genes <- function(r,mat,matw=NULL,root,leaves,genes=rownames(mat),n.ma
 ##' @param effect.b2 expression differences to call gene as differentially upregulated at branch 2
 ##' @param pd.a  minium expression increase at derivative compared to progenitor branches to call gene as branch-specific
 ##' @param pd.p p-value of expression changes of derivative compared to progenitor branches to call gene as branch-specific
+##' @param rootup search for gene upregulated in progenitor branch
 ##' @return table fork.de  with added column stat, which classfies genes in branch-specifc (1 or 2) and non-branch-specific (0)
 ##' @export
-branch.specific.genes <- function(fork.de,stf.cut = 0.7, effect.b1 = 0.1,effect.b2 = 0.3, pd.a = 0, pd.p = 5e-2){
-  ind <- fork.de$stf >= stf.cut & fork.de$effect  > effect.b1 & fork.de$pd1.a > pd.a & fork.de$pd1.p < pd.p
-  gns1 <- rownames(fork.de)[ind]
-
-  ind <- fork.de$stf >= stf.cut & fork.de$effect  < -effect.b2 & fork.de$pd2.a > pd.a & fork.de$pd2.p < pd.p
-  gns2 <- rownames(fork.de)[ind]
-
+branch.specific.genes <- function(fork.de,stf.cut = 0.7, effect.b1 = 0.1,effect.b2 = 0.3, pd.a = 0, pd.p = 5e-2,rootup=FALSE){
+  if (!rootup){
+    ind <- fork.de$stf >= stf.cut & fork.de$effect  > effect.b1 & fork.de$pd1.a > pd.a & fork.de$pd1.p < pd.p
+    gns1 <- rownames(fork.de)[ind]
+    ind <- fork.de$stf >= stf.cut & fork.de$effect  < -effect.b2 & fork.de$pd2.a > pd.a & fork.de$pd2.p < pd.p
+    gns2 <- rownames(fork.de)[ind]
+  } else {
+      ind <- fork.de$stf >= stf.cut & fork.de$effect  > effect.b1 & fork.de$pd1.a < pd.a & fork.de$pd1.p < pd.p
+      gns1 <- rownames(fork.de)[ind]
+      ind <- fork.de$stf >= stf.cut & fork.de$effect  < -effect.b2 & fork.de$pd2.a < pd.a & fork.de$pd2.p < pd.p
+      gns2 <- rownames(fork.de)[ind]
+  }
   state <- rep(0,nrow(fork.de)); names(state) <- rownames(fork.de)
   state[gns1] <- 1
   state[gns2] <- 2
-
   return(cbind(fork.de,state))
 }
 
