@@ -338,7 +338,7 @@ lambda.explore <- function(X=NA,M=ncol(X),sigma=0.1,emb=NA,metrics="cosine",tips
 plotppt <- function(r,emb,F=NULL, gene=NULL, main=gene, mat=NULL, pattern.cell=NULL, pattern.tree=NULL,
                     cex.col=NA, tree.col = NULL,
                     cex.main=0.5, cex.title=1,
-                    cex.tree=1.5,lwd.tree=1,par=TRUE,tips=FALSE,forks=FALSE,subtree=NA,pallete=NULL,...) {
+                    cex.tree=1.5,lwd.tree=1,par=TRUE,tips=FALSE,forks=FALSE,subtree=NA,palette=NULL,...) {
   if ( sum(!rownames(r$R)%in%rownames(emb))>0 ) { stop("cell names used for tree reconstruction are not consistent with row names of embedding (emb)") }
   if (sum(!is.na(cex.col))==0 ) {cex.col=rep("grey70",nrow(emb)); names(cex.col) <- rownames(emb)}
   vi = rownames(emb)%in%rownames(r$R); names(vi) <- rownames(emb)
@@ -349,7 +349,7 @@ plotppt <- function(r,emb,F=NULL, gene=NULL, main=gene, mat=NULL, pattern.cell=N
     if ( sum(!rownames(r$R) %in% colnames(mat)) > 0 ) { stop("cell names used for tree reconstruction are not consistent with mat column names") }
     pattern.cell = mat[gene,rownames(r$R)]#mat[gene,rownames(r$R)]
   }
-  if (is.null(pallete)) {pallete <- colorRampPalette(c("blue","gray50","red"))(1024)}else{pallete <- pallete(1024)}
+  if (is.null(palette)) {palette <- colorRampPalette(c("blue","gray50","red"))(1024)}else{palette <- palette(1024)}
 
   if ( !is.null(pattern.tree) & length(pattern.tree) != ncol(r$R) ) { stop("length of pattern.tree vector is inconsistent with cell number used for tree reconstruction") }
   if ( !is.null(pattern.cell) & is.null(pattern.tree) ){
@@ -363,11 +363,11 @@ plotppt <- function(r,emb,F=NULL, gene=NULL, main=gene, mat=NULL, pattern.cell=N
   if (is.null(tree.col)) {tree.col = "black"}
   if( !is.null(pattern.cell) ){
     cex.col <- rep("black",nrow(emb)); names(cex.col) <- rownames(emb)
-    cex.col[names(pattern.cell)] <- pallete[round((pattern.cell-min(pattern.cell))/diff(range(pattern.cell))*1023)+1]
+    cex.col[names(pattern.cell)] <- palette[round((pattern.cell-min(pattern.cell))/diff(range(pattern.cell))*1023)+1]
     #cex.col <- colorRampPalette(c("blue","gray50","red"))(1024)[round((pattern.cell-min(pattern.cell))/diff(range(pattern.cell))*1023)+1]
   }
   if ( !is.null(pattern.tree) ){
-    tree.col <- pallete[round((pattern.tree-min(pattern.tree,na.rm=T))/diff(range(pattern.tree,na.rm = T))*1023)+1]
+    tree.col <- palette[round((pattern.tree-min(pattern.tree,na.rm=T))/diff(range(pattern.tree,na.rm = T))*1023)+1]
     #r$fitting$pp.fitted[gene,]
   }
 
@@ -1209,9 +1209,9 @@ visualise.trajectory = function(r,gene,X,cex.cell=0.3,cex.lab=2,cex.axis=1.5,cex
 ##' @param subtree visualize clusters for a given subtree
 ##' @param show.genes input your own list of genes, integer vector with names as genes
 ##' @export
-visualise.clusters <- function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor",cex.gene=1,cex.cell=0.1,cex.tree=2,subtree=NA, reclust=TRUE,genes.show=NULL){
+visualise.clusters <- function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="cor",cex.gene=1,cex.cell=0.1,cex.tree=2,subtree=NA, reclust=TRUE,genes.show=NULL,pal=NULL){
   
-  
+  if (is.null(pal)){pal=colorRampPalette(c("blue","grey80","red"))}
   if ( !is.na(clust) & sum(!names(clust)%in%rownames(r$fit.summary))>0) {stop( paste("Expression is not fitted for",sum(!names(clust)%in%rownames(r$fit.summary)),"genes" ))}
   if (best.method!="pca" & best.method!="cor") {stop(paste("incorrect best.method option",best.method) )}
   tseg <- unlist(lapply( unique(r$cell.summary$seg),function(seg)mean(r$cell.summary$t[r$cell.summary$seg==seg]))); names(tseg) <-  unique(r$cell.summary$seg)
@@ -1260,7 +1260,7 @@ visualise.clusters <- function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="co
     
     # draw cluster-wise pattern
     par(mar=c(0.3,0.1,0.0,0.2))
-    plotppt(r,emb,pattern.cell = apply(emat[clust==cln,],2,mean),cex.main=cex.cell,cex.tree = cex.tree,lwd.tree = 0.1,subtree=subtree)
+    plotppt(r,emb,pattern.cell = apply(emat[clust==cln,],2,mean),cex.main=cex.cell,cex.tree = cex.tree,lwd.tree = 0.1,subtree=subtree,palette=pal)
     # draw color-scheme for branches
     #par(mar=c(0.0,0.2,0.1,2))
     par(mar=c(0.0,0.0,0.0,0))
@@ -1277,7 +1277,7 @@ visualise.clusters <- function(r,emb,clust=NA,clust.n=5,n.best=4,best.method="co
     
     #par(mar=c(0.2,0.2,0.0,2))
     par(mar=c(0.3,0.0,0.0,0))
-    image( t(emat[gns,subcells]),useRaster=TRUE,axes=FALSE,col=colorRampPalette(c("blue","grey80","red"))(n = 60))
+    image( t(emat[gns,subcells]),useRaster=TRUE,axes=FALSE,col=pal(60))
     #axis( 4, at=seq(0,1,length.out=sum(clust==cln)),col.axis="black", labels=gns,hadj=0.1,xaxt="s",cex.axis=1.5,font = 3,las= 1,tick=FALSE)
     box()
     
