@@ -1011,7 +1011,7 @@ fit.ts <- function(r,X,n.map,n.cores=parallel::detectCores()/2,gamma=1.5,knn=1,v
     gt.fun.smooth <- function(expr.fitted){
       # new version - knn smoothing, where knns are estimated along the tree.
       temp=dst.tree[names(expr.fitted),names(expr.fitted)]
-      expr.fitted <- (temp %*% expr.fitted) / rowSums(temp)
+      expr.fitted <- (temp %*% expr.fitted) / Matrix::rowSums(temp)
       expr.fitted <- expr.fitted[,1]
       return(expr.fitted[!duplicated(names(expr.fitted))])
     }
